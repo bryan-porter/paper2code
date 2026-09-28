@@ -1,0 +1,2 @@
+# CI audit toolchain (Linux x64, CPython 3.13).
+pip-audit==2.10.1

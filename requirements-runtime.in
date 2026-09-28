@@ -1,0 +1,3 @@
+# Direct runtime dependency for the maintained acquisition helper.
+# Supported resolution target: CPython 3.13, Windows x86-64, canonical PyPI.
+requests==2.34.2

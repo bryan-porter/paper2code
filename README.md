@@ -7,7 +7,8 @@
 │                             │         │  {paper_slug}/                       │
 │  /paper2code                │         │  ├── README.md                       │
 │  https://arxiv.org/abs/     │  ───▶   │  ├── REPRODUCTION_NOTES.md          │
-│  1706.03762                 │         │  ├── requirements.txt               │
+│  1706.03762                 │         │  ├── requirements.in                │
+│                             │         │  ├── requirements-<target>.lock     │
 │                             │         │  ├── src/                            │
 │                             │         │  │   ├── model.py     # §3.2 cited  │
 │                             │         │  │   ├── loss.py      # §3.4 cited  │
@@ -46,8 +47,15 @@ The result: code you can trust because you can verify every decision against the
 ## Install
 
 ```bash
-npx skills add PrathamLearnsToCode/paper2code/skills/paper2code
+npx skills@1.5.24 add bryan-porter/paper2code/skills/paper2code
 ```
+
+This pins the installer, but the GitHub source is still unpinned and follows the
+repository's default branch. Review the skill and bundled scripts before
+installing them, and run the installer without production credentials. For an
+immutable install, quote a source ending in
+`#<reviewed-full-commit-sha>` (for example,
+`'bryan-porter/paper2code/skills/paper2code#<reviewed-full-commit-sha>'`).
 
 You'll be prompted to:
 1. **Select agents** — pick the coding agents you want to use this skill with (e.g., Claude Code)
@@ -59,6 +67,19 @@ Once installed, open your agent and run the skill:
 ```bash
 claude  # or your preferred agent
 ```
+
+### Supported runtime and locked installs
+
+The maintained dependency and CI target is **64-bit Windows on CPython 3.13**, using only the canonical `https://pypi.org/simple` index. Other Python versions and operating systems may work, but they do not have a reviewed hash-locked closure in this repository and are not security-supported.
+
+Install the acquisition helper in a new virtual environment with the complete reviewed lock:
+
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r requirements-runtime-win-py313.lock
+```
+
+`requirements-runtime.in`, `requirements-ci.in`, and the example-specific `requirements.in` files are human-reviewed direct inputs, not install locks. The corresponding `requirements-*-win-py313.lock` files contain the complete resolved closures and artifact hashes. CI verifies their structure, installs the exact locks, runs `pip check`, tests the installed code, and audits those same lock files. Pip runs in isolated mode so user or environment configuration cannot add an unexpected package index.
 
 ---
 
@@ -102,7 +123,8 @@ claude  # or your preferred agent
 attention_is_all_you_need/
 ├── README.md                    # Paper summary, contribution statement, quick-start
 ├── REPRODUCTION_NOTES.md        # Ambiguity audit, unspecified choices, known deviations
-├── requirements.txt             # Pinned dependencies
+├── requirements.in              # Reviewed direct dependency inputs
+├── requirements-<target>.lock  # Complete hash-locked target closure
 ├── src/
 │   ├── model.py                 # Architecture — every layer cited to paper section
 │   ├── loss.py                  # Loss functions with equation references
@@ -135,6 +157,39 @@ attention_is_all_you_need/
 - **Won't set up training infrastructure.** No distributed training, no experiment tracking, no checkpointing beyond what the paper's contribution requires.
 - **Won't implement baselines.** Only the core contribution of the paper is implemented.
 - **Won't reimplement standard components.** If the paper says "standard transformer encoder," the code imports it or notes the dependency — it doesn't reimplement attention from scratch.
+
+---
+
+## Security model
+
+Treat every paper, PDF, extracted passage, supplementary file, repository link,
+generated implementation, notebook, checkpoint, and package command as
+**untrusted external content**. Paper2code does not automatically install
+dependencies, clone linked repositories, execute generated code, or load full
+Python objects from checkpoints.
+
+The acquisition helper accepts canonical arXiv HTTPS URLs, validates every
+redirect, bounds response sizes and parser state, checks expected media types,
+refuses accidental output replacement, and neutralizes active HTML and Markdown
+image embeds in its saved Markdown. One total monotonic deadline covers metadata,
+redirects, all streamed bodies, the inert PDF download, ar5iv text acquisition,
+and candidate-code lookup. A downloaded PDF is retained only as an inert artifact;
+the workflow never automatically opens, parses, renders, or OCRs it. If bounded
+ar5iv parsing fails, the only fallback is a bounded, regular, non-link UTF-8 text
+file supplied by the user.
+
+On POSIX, output creation uses private directories and handle-relative,
+no-follow operations where the platform exposes them. Windows does not provide
+equivalent Python `dir_fd`/`O_NOFOLLOW` guarantees. The helper combines reparse
+point checks, regular-file checks, and pre/post-open identity checks, but a process
+running as the same Windows principal could still win a path-swap race. Run it in
+an ACL-isolated directory with no untrusted same-account process. These controls
+do not make remote content or generated ML code trusted. Use a disposable,
+project-local virtual environment without production credentials, private
+datasets, or sensitive filesystem access, and inspect generated code before
+running it.
+
+See [SECURITY.md](SECURITY.md) for private vulnerability-reporting guidance.
 
 ---
 

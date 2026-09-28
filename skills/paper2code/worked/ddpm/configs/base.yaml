@@ -31,6 +31,7 @@ model:
   dropout: 0.0                 # Appendix B — "dropout 0.0" (CIFAR-10). "dropout 0.1" for bedroom/church
   time_embed_dim: 128          # [FROM_OFFICIAL_CODE] — sinusoidal timestep embedding dimension
   num_groups: 32               # [FROM_OFFICIAL_CODE] — groups for GroupNorm
+  image_size: 32               # CIFAR-10 spatial size; must match data.image_size
 
 # ---------------------------------------------------------------------------
 # Training — §4, Algorithm 1

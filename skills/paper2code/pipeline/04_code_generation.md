@@ -38,7 +38,7 @@ Generate files in this order (dependencies flow downward):
 5. `src/data.py` — dataset and dataloader
 6. `src/train.py` — training loop (if in scope)
 7. `src/evaluate.py` — evaluation
-8. `requirements.txt` — dependencies
+8. `requirements.in` plus a target-named `requirements-<target>.lock` — reviewed direct inputs and the complete hash-locked closure
 9. `REPRODUCTION_NOTES.md` — from the ambiguity audit
 10. `README.md` — project readme
 
@@ -253,16 +253,18 @@ class MainModel(nn.Module):
 
 ---
 
-## requirements.txt
+## Dependency manifest and target lock
 
-```
-torch>=2.0.0
-pyyaml>=6.0
-numpy>=1.24.0
+`requirements.in` records exact direct inputs:
+
+```text
+torch==<audited-compatible-version>
+PyYAML==<audited-compatible-version>
+numpy==<audited-compatible-version>
 # Add paper-specific dependencies below
 ```
 
-Pin major versions only. Add comments for why each dependency is needed.
+Resolve exact versions for one honestly documented Python/OS/architecture/index target. Generate a separate `requirements-<target>.lock` containing every transitive dependency and SHA-256 hashes for all permitted artifacts. Reject VCS/direct references and unexpected indexes. Audit that exact lock and record the resolution date and target in `REPRODUCTION_NOTES.md`. If a universal lock is not practical, do not imply portability: generate distinct exact locks for each supported target or narrow support to the one reviewed target. Do not install or execute the generated environment during this conversion pass; installation needs separate user authorization in a disposable virtual environment.
 
 ---
 

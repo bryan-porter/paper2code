@@ -1,0 +1,13 @@
+.paper2code_work/
+.pytest_cache/
+.test-tmp/
+pytest-cache-files-*/
+__pycache__/
+*.py[cod]
+.venv/
+.lock-venv/
+.verify-venvs/
+venv/
+dist/
+build/
+*.egg-info/

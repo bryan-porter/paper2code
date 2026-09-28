@@ -23,7 +23,6 @@ Hyperparameters from §4 and Appendix B:
   - Trained for 800K steps on CIFAR-10 (Appendix B)
 """
 
-import os
 import logging
 from pathlib import Path
 
@@ -35,6 +34,7 @@ from model import UNet, UNetConfig
 from loss import DDPMLoss
 from data import get_dataloaders
 from utils import linear_noise_schedule, q_sample, EMA
+from checkpoint import save_checkpoint, validate_config
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s — %(message)s")
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ def train(config_path: str = "configs/base.yaml"):
     config_path = Path(config_path)
     if config_path.exists():
         with open(config_path) as f:
-            cfg = yaml.safe_load(f)
+            cfg = validate_config(yaml.safe_load(f))
     else:
         raise FileNotFoundError(f"Config not found: {config_path}")
 
@@ -64,14 +64,13 @@ def train(config_path: str = "configs/base.yaml"):
 
     # --- Noise schedule ---
     # §2, Eq. 4 — linear schedule β_1 = 0.0001, β_T = 0.02
-    T = diff_cfg["T"]
-    betas = linear_noise_schedule(T, diff_cfg["beta_start"], diff_cfg["beta_end"])
-    betas = betas.to(device)
-
-    alphas = 1.0 - betas                                    # α_t = 1 − β_t
-    alpha_bar = torch.cumprod(alphas, dim=0)                # ᾱ_t = ∏_{s=1}^{t} α_s
-    sqrt_alpha_bar = torch.sqrt(alpha_bar)                  # √ᾱ_t
-    sqrt_one_minus_alpha_bar = torch.sqrt(1.0 - alpha_bar)  # √(1−ᾱ_t)
+    timesteps = diff_cfg["timesteps"]
+    schedule = linear_noise_schedule(
+        timesteps,
+        diff_cfg["beta_start"],
+        diff_cfg["beta_end"],
+    )
+    schedule = {name: tensor.to(device) for name, tensor in schedule.items()}
 
     # --- Model ---
     unet_config = UNetConfig(
@@ -81,6 +80,7 @@ def train(config_path: str = "configs/base.yaml"):
         num_res_blocks=model_cfg.get("num_res_blocks", 2),
         attention_resolutions=tuple(model_cfg.get("attention_resolutions", [16])),
         dropout=model_cfg.get("dropout", 0.0),
+        time_embed_dim=model_cfg.get("time_embed_dim", 512),
         num_groups=model_cfg.get("num_groups", 32),
         image_size=data_cfg.get("image_size", 32),
     )
@@ -97,6 +97,9 @@ def train(config_path: str = "configs/base.yaml"):
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=float(train_cfg.get("lr", 2e-4)),
+        betas=tuple(train_cfg.get("betas", [0.9, 0.999])),
+        eps=float(train_cfg.get("eps", 1e-8)),
+        weight_decay=float(train_cfg.get("weight_decay", 0.0)),
     )
 
     # --- Loss ---
@@ -115,7 +118,6 @@ def train(config_path: str = "configs/base.yaml"):
     log_every = train_cfg.get("log_every", 1000)
     save_every = train_cfg.get("save_every", 50_000)
     save_dir = Path(train_cfg.get("save_dir", "checkpoints"))
-    save_dir.mkdir(parents=True, exist_ok=True)
     grad_clip = train_cfg.get("gradient_clip", 1.0)
 
     step = 0
@@ -131,13 +133,13 @@ def train(config_path: str = "configs/base.yaml"):
             batch_size = x_0.shape[0]
 
             # Algorithm 1, line 3: t ~ Uniform({1, ..., T})
-            t = torch.randint(1, T + 1, (batch_size,), device=device)
+            t = torch.randint(0, timesteps, (batch_size,), device=device)
 
             # Algorithm 1, line 4: ε ~ N(0, I)
             noise = torch.randn_like(x_0)
 
             # Algorithm 1, line 5: compute x_t and predict noise
-            x_t = q_sample(x_0, t, sqrt_alpha_bar, sqrt_one_minus_alpha_bar, noise)
+            x_t = q_sample(x_0, t, schedule, noise)
             noise_pred = model(x_t, t)
 
             # L_simple — §3.4, Eq. 14
@@ -148,13 +150,13 @@ def train(config_path: str = "configs/base.yaml"):
             loss.backward()
 
             # [FROM_OFFICIAL_CODE] gradient clipping
-            if grad_clip > 0:
+            if grad_clip is not None and grad_clip > 0:
                 nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
 
             optimizer.step()
 
             # §4 — EMA update
-            ema.update()
+            ema.update(model)
 
             step += 1
 
@@ -162,27 +164,26 @@ def train(config_path: str = "configs/base.yaml"):
                 logger.info(f"Step {step}/{total_steps} — loss: {loss.item():.6f}")
 
             if step % save_every == 0:
-                checkpoint = {
-                    "step": step,
-                    "model_state_dict": model.state_dict(),
-                    "ema_state_dict": ema.shadow_params,
-                    "optimizer_state_dict": optimizer.state_dict(),
-                    "loss": loss.item(),
-                    "config": cfg,
-                }
-                ckpt_path = save_dir / f"ddpm_step_{step}.pt"
-                torch.save(checkpoint, ckpt_path)
+                ckpt_path = save_dir / f"ddpm_step_{step}.safetensors"
+                save_checkpoint(
+                    ckpt_path,
+                    model=model,
+                    ema_shadow=ema.shadow,
+                    config=cfg,
+                    step=step,
+                    loss=loss.item(),
+                )
                 logger.info(f"Saved checkpoint: {ckpt_path}")
 
     # Final save
-    final_path = save_dir / "ddpm_final.pt"
-    torch.save({
-        "step": step,
-        "model_state_dict": model.state_dict(),
-        "ema_state_dict": ema.shadow_params,
-        "optimizer_state_dict": optimizer.state_dict(),
-        "config": cfg,
-    }, final_path)
+    final_path = save_dir / "ddpm_final.safetensors"
+    save_checkpoint(
+        final_path,
+        model=model,
+        ema_shadow=ema.shadow,
+        config=cfg,
+        step=step,
+    )
     logger.info(f"Training complete. Final checkpoint: {final_path}")
 
 

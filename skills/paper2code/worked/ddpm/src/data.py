@@ -67,7 +67,7 @@ def get_dataloaders(
     §4 — "batch size 128" [FROM_OFFICIAL_CODE — paper does not state batch size]
 
     Args:
-        data_dir: Root directory for dataset download/cache
+        data_dir: Root directory containing a separately acquired CIFAR-10 copy
         batch_size: Batch size for training
         num_workers: Number of data loading workers
         image_size: Image resolution (32 for CIFAR-10)
@@ -80,14 +80,14 @@ def get_dataloaders(
     train_dataset = datasets.CIFAR10(
         root=data_dir,
         train=True,
-        download=True,
+        download=False,
         transform=train_transform,
     )
 
     test_dataset = datasets.CIFAR10(
         root=data_dir,
         train=False,
-        download=True,
+        download=False,
         transform=test_transform,
     )
 

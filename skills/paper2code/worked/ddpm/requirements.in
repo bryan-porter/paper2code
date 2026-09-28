@@ -1,0 +1,8 @@
+# Direct dependencies for the complete worked example, notebook, and FID evaluation.
+# Supported resolution target: CPython 3.13, Windows x86-64, canonical PyPI.
+matplotlib==3.11.1
+pytorch-fid==0.3.0
+PyYAML==6.0.3
+safetensors==0.8.0
+torch==2.14.0
+torchvision==0.29.0

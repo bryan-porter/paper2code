@@ -1,0 +1,221 @@
+name: Security
+
+on:
+  push:
+    branches:
+      - main
+      - "security/**"
+  pull_request:
+  schedule:
+    - cron: "17 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-security:
+    name: Source/security tests (Windows x64, Python 3.13)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up supported Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Install exact hash-locked CI closure
+        shell: pwsh
+        run: |
+          python -m venv .ci-venv
+          .\.ci-venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r requirements-ci-win-py313.lock
+
+      - name: Validate all dependency manifests
+        run: .\.ci-venv\Scripts\python.exe scripts/verify_dependency_locks.py
+
+      - name: Compile maintained Python
+        run: >-
+          .\.ci-venv\Scripts\python.exe -m compileall -q
+          scripts
+          skills/paper2code/scripts
+          skills/paper2code/worked
+          tests
+
+      - name: Run source and security regression tests
+        run: >-
+          .\.ci-venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+          tests
+
+      - name: Verify installed dependencies
+        run: .\.ci-venv\Scripts\python.exe -m pip check
+
+  runtime-lock:
+    name: Acquisition runtime lock (Windows x64, Python 3.13)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up supported Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Install exact hash-locked runtime closure
+        shell: pwsh
+        run: |
+          python -m venv .runtime-venv
+          .\.runtime-venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r requirements-runtime-win-py313.lock
+
+      - name: Exercise installed runtime
+        run: .\.runtime-venv\Scripts\python.exe skills/paper2code/scripts/fetch_paper.py --help
+
+      - name: Verify installed dependencies
+        run: .\.runtime-venv\Scripts\python.exe -m pip check
+
+  attention-example:
+    name: Attention example lock (Windows x64, Python 3.13)
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up supported Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Install exact hash-locked example closure
+        shell: pwsh
+        run: |
+          python -m venv .attention-venv
+          .\.attention-venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r skills/paper2code/worked/attention_is_all_you_need/requirements-win-py313.lock
+
+      - name: Exercise installed example
+        shell: pwsh
+        run: >-
+          .\.attention-venv\Scripts\python.exe -c
+          "import sys; sys.path.insert(0, 'skills/paper2code/worked/attention_is_all_you_need'); import src.model, src.loss, src.data, src.train, src.evaluate, src.utils"
+
+      - name: Verify installed dependencies
+        run: .\.attention-venv\Scripts\python.exe -m pip check
+
+  ddpm-example:
+    name: DDPM example and checkpoint tests (Windows x64, Python 3.13)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up supported Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Install exact hash-locked example and test closures
+        shell: pwsh
+        run: |
+          python -m venv .ddpm-venv
+          .\.ddpm-venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r skills/paper2code/worked/ddpm/requirements-win-py313.lock -r requirements-ci-win-py313.lock
+
+      - name: Exercise strict checkpoint and offline FID implementation
+        run: >-
+          .\.ddpm-venv\Scripts\python.exe -m pytest -q -p no:cacheprovider
+          tests/test_ddpm_checkpoint_security.py tests/test_ddpm_offline_inputs.py
+
+      - name: Import installed example modules
+        shell: pwsh
+        run: >-
+          .\.ddpm-venv\Scripts\python.exe -c
+          "import sys; sys.path.insert(0, 'skills/paper2code/worked/ddpm/src'); import checkpoint, model, loss, data, train, evaluate, utils"
+
+      - name: Verify installed dependencies
+        run: .\.ddpm-venv\Scripts\python.exe -m pip check
+
+  dependency-audit:
+    name: Audit every supported lock
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python for lock auditing
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install hash-locked audit toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m venv .audit-venv
+          .audit-venv/bin/python -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r .github/requirements-pip-audit-linux-py313.lock
+          .audit-venv/bin/python -m pip check
+
+      - name: Audit the exact supported locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          for lock in \
+            .github/requirements-pip-audit-linux-py313.lock \
+            requirements-runtime-win-py313.lock \
+            requirements-ci-win-py313.lock \
+            skills/paper2code/worked/attention_is_all_you_need/requirements-win-py313.lock \
+            skills/paper2code/worked/ddpm/requirements-win-py313.lock; do
+            .audit-venv/bin/python -m pip_audit --strict --disable-pip --require-hashes -r "$lock"
+          done
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Download and verify Gitleaks 8.30.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks_8.30.1_linux_x64.tar.gz"
+          curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \
+            --output "$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check --strict
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP" gitleaks
+          chmod 0755 "$RUNNER_TEMP/gitleaks"
+
+      - name: Scan every reachable commit, including merge parents
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --all includes every fetched ref; -m scans each merge parent diff.
+          "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --log-opts="--all -m"

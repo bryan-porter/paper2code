@@ -1,0 +1,9 @@
+* @bryan-porter
+
+/.github/ @bryan-porter
+/requirements-*.in @bryan-porter
+/requirements-*.lock @bryan-porter
+/skills/paper2code/worked/*/requirements.in @bryan-porter
+/skills/paper2code/worked/*/requirements-*.lock @bryan-porter
+/skills/paper2code/SKILL.md @bryan-porter
+/skills/paper2code/scripts/ @bryan-porter

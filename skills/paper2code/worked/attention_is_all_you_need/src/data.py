@@ -11,7 +11,7 @@ Section references:
           source-target vocabulary of about 37000 tokens."
 
 NOTE: This file provides the Dataset class skeleton. You must:
-  1. Download WMT 2014 EN-DE from http://www.statmt.org/wmt14/translation-task.html
+  1. Download WMT 2014 EN-DE from https://www.statmt.org/wmt14/translation-task.html
   2. Apply BPE tokenization (e.g., sentencepiece with 37000 merge operations)
   3. Set the data_dir in configs/base.yaml
 """
@@ -41,7 +41,7 @@ class WMTTranslationDataset(Dataset):
         └── vocab.txt     # Shared BPE vocabulary, one token per line
 
     How to obtain:
-        1. Download WMT 2014 EN-DE data from http://www.statmt.org/wmt14/
+        1. Download WMT 2014 EN-DE data from https://www.statmt.org/wmt14/
         2. Apply BPE tokenization with ~37000 merge operations
            (use sentencepiece: spm_train --input=data.txt --model_prefix=wmt
             --vocab_size=37000 --model_type=bpe)

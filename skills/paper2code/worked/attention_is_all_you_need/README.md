@@ -8,9 +8,12 @@ The Transformer architecture — an encoder-decoder model based entirely on mult
 
 ## Quick start
 
-```bash
-pip install -r requirements.txt
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip --isolated install --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r requirements-win-py313.lock
 ```
+
+The security-supported target is 64-bit Windows on CPython 3.13 using the canonical PyPI index. `requirements.in` is the reviewed direct-input manifest; it is not a lock. `requirements-win-py313.lock` contains the complete transitive closure and artifact hashes. Review and audit that exact lock before installation. Use a disposable environment without credentials or sensitive data. Other platforms are not security-supported by this example.
 
 ```python
 from src.model import Transformer, TransformerConfig
@@ -32,7 +35,8 @@ print(output.shape)  # (2, 15, vocab_size)
 attention_is_all_you_need/
 ├── README.md                 # This file
 ├── REPRODUCTION_NOTES.md     # Ambiguity audit — what's specified vs. assumed
-├── requirements.txt          # Dependencies
+├── requirements.in           # Reviewed direct dependency inputs
+├── requirements-win-py313.lock # Complete target-specific hash lock
 ├── src/
 │   ├── model.py              # Full Transformer architecture (§3)
 │   ├── loss.py               # Label-smoothed cross-entropy (§5.4)

@@ -7,7 +7,8 @@ Implements: BLEU score computation for translation evaluation.
 Section references:
   §6 — "Results" — BLEU scores reported in Table 2
 
-NOTE: For reproducible BLEU, use sacrebleu (pip install sacrebleu).
+NOTE: For reproducible BLEU, use the reviewed sacrebleu closure recorded in
+      requirements-win-py313.lock and install it into an isolated environment.
       Different BLEU implementations give different numbers (sometimes 1-2 points)
       due to tokenization and smoothing differences.
 """
@@ -49,7 +50,8 @@ def compute_bleu(
     except ImportError:
         raise ImportError(
             "sacrebleu is required for BLEU computation. "
-            "Install with: pip install sacrebleu"
+            "Install and audit the reviewed requirements-win-py313.lock in an "
+            "isolated virtual environment."
         )
 
 

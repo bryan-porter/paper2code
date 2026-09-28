@@ -1,0 +1,5 @@
+# Direct dependencies for the complete worked example, including BLEU evaluation.
+# Supported resolution target: CPython 3.13, Windows x86-64, canonical PyPI.
+PyYAML==6.0.3
+sacrebleu==2.6.0
+torch==2.14.0

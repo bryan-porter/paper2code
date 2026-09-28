@@ -9,8 +9,12 @@ Implementation of [{{PAPER_TITLE}}](https://arxiv.org/abs/{{ARXIV_ID}}) ({{AUTHO
 ## Quick start
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate  # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip --isolated install --require-virtualenv --require-hashes --only-binary=:all: --index-url https://pypi.org/simple -r requirements-{{TARGET}}.lock
 ```
+
+This project supports {{PYTHON_OS_ARCH_TARGET}} using the canonical PyPI index. `requirements.in` contains reviewed direct inputs but is not an install lock; `requirements-{{TARGET}}.lock` is the complete resolved, hash-locked closure. Review and audit that exact lock before installation. Never run generated code or install its dependencies in an environment that contains production credentials or sensitive data.
 
 ```python
 from src.model import {{MODEL_CLASS}}, ModelConfig
@@ -31,7 +35,8 @@ print(output.shape)  # {{EXPECTED_OUTPUT_SHAPE}}
 {{PAPER_SLUG}}/
 ├── README.md                 # This file
 ├── REPRODUCTION_NOTES.md     # Ambiguity audit — what's specified vs. assumed
-├── requirements.txt          # Dependencies
+├── requirements.in           # Reviewed direct dependency inputs
+├── requirements-{{TARGET}}.lock # Complete target-specific hash lock
 ├── src/
 │   ├── model.py              # {{MODEL_DESCRIPTION}}
 │   ├── loss.py               # {{LOSS_DESCRIPTION}}

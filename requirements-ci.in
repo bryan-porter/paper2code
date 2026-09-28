@@ -1,0 +1,4 @@
+# Test/runtime dependencies for source-level security checks.
+# Supported resolution target: CPython 3.13, Windows x86-64, canonical PyPI.
+pytest==9.1.1
+requests==2.34.2
